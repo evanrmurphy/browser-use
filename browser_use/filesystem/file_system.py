@@ -149,9 +149,15 @@ class FileSystem:
 
 		# Create and use a dedicated subfolder for all operations
 		self.data_dir = self.base_dir / DEFAULT_FILE_SYSTEM_PATH
-		if self.data_dir.exists():
-			# clean the data directory
-			shutil.rmtree(self.data_dir)
+
+        # ORIGINAL BROWSER-USE CODE REMOVED IN FORK
+        # Commenting out this code so as to make the files manipulated with actions such as write_file
+        # persistant across browser-use instances.
+        # -evanrmurphy (10 Jul 2025)
+		#if self.data_dir.exists():
+		#	# clean the data directory
+		#	shutil.rmtree(self.data_dir)
+
 		self.data_dir.mkdir(exist_ok=True)
 
 		self._file_types: dict[str, type[BaseFile]] = {
