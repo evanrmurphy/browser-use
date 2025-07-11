@@ -795,24 +795,28 @@ class TestFileSystemEdgeCases:
 			assert fs.base_dir == path_obj
 			fs.nuke()
 
-	def test_filesystem_recreates_data_dir(self):
-		"""Test that FileSystem recreates data directory if it exists."""
+	def test_filesystem_preserves_data_dir(self):
+		"""Test that FileSystem preserves existing data directory and files.
+		
+		FORK ENHANCEMENT: This test verifies the modified behavior where FileSystem
+		instances preserve existing files instead of cleaning the data directory.
+		-evanrmurphy (11 Jul 2025)
+		"""
 		with tempfile.TemporaryDirectory() as tmp_dir:
 			# Create filesystem
 			fs1 = FileSystem(base_dir=tmp_dir, create_default_files=True)
 			data_dir = fs1.data_dir
 
-			# Add a custom file
-			custom_file = data_dir / 'custom.txt'
-			custom_file.write_text('custom content')
-			assert custom_file.exists()
+			# Verify default file was created
+			assert (data_dir / 'todo.md').exists()
+			assert 'todo.md' in fs1.files
 
-			# Create another filesystem with same base_dir (should clean data_dir)
+			# Create another filesystem with same base_dir (should preserve existing files)
 			fs2 = FileSystem(base_dir=tmp_dir, create_default_files=True)
 
-			# Custom file should be gone, default files should exist
-			assert not custom_file.exists()
+			# Default file should still exist and be loaded into registry
 			assert (fs2.data_dir / 'todo.md').exists()
+			assert 'todo.md' in fs2.files
 
 			fs2.nuke()
 
