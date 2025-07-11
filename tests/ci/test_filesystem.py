@@ -935,3 +935,65 @@ class TestFileSystemIntegration:
 				assert file_obj.content == f'Content for file {i}'
 
 			fs.nuke()
+
+	async def test_filesystem_persistence_across_instances(self):
+		"""Test that files created by one FileSystem instance are accessible by another instance with the same base_dir.
+		
+		FORK ENHANCEMENT: This test verifies the file sharing functionality added to enable
+		Agent instances with the same file_system_path to share files.
+		-evanrmurphy (11 Jul 2025)
+		"""
+		with tempfile.TemporaryDirectory() as tmp_dir:
+			# Create first FileSystem instance and write files
+			fs1 = FileSystem(base_dir=tmp_dir, create_default_files=False)
+			
+			# Write some files with the first instance
+			await fs1.write_file('shared_notes.txt', 'Notes from first agent')
+			await fs1.write_file('data.json', '{"id": 1, "name": "test"}')
+			await fs1.write_file('report.md', '# Shared Report\nThis is shared content.')
+			
+			# Verify files exist in first instance
+			assert 'shared_notes.txt' in fs1.files
+			assert 'data.json' in fs1.files  
+			assert 'report.md' in fs1.files
+			
+			# Verify files exist on disk
+			assert (fs1.data_dir / 'shared_notes.txt').exists()
+			assert (fs1.data_dir / 'data.json').exists()
+			assert (fs1.data_dir / 'report.md').exists()
+			
+			# Create second FileSystem instance with same base_dir (simulating new Agent)
+			fs2 = FileSystem(base_dir=tmp_dir, create_default_files=False)
+			
+			# Verify second instance can see and read files created by first instance
+			assert 'shared_notes.txt' in fs2.files
+			assert 'data.json' in fs2.files
+			assert 'report.md' in fs2.files
+			
+			# Test reading content through the second instance
+			notes_content = await fs2.read_file('shared_notes.txt')
+			assert 'Notes from first agent' in notes_content
+			
+			data_content = await fs2.read_file('data.json')
+			assert '"name": "test"' in data_content
+			
+			report_content = await fs2.read_file('report.md')
+			assert '# Shared Report' in report_content
+			assert 'This is shared content.' in report_content
+			
+			# Test that second instance can modify files created by first instance
+			await fs2.append_file('shared_notes.txt', '\nAdded by second agent')
+			
+			# Verify the modification is visible
+			updated_content = await fs2.read_file('shared_notes.txt')
+			assert 'Notes from first agent' in updated_content
+			assert 'Added by second agent' in updated_content
+			
+			# Create third instance to verify the modification persists
+			fs3 = FileSystem(base_dir=tmp_dir, create_default_files=False)
+			final_content = await fs3.read_file('shared_notes.txt')
+			assert 'Notes from first agent' in final_content
+			assert 'Added by second agent' in final_content
+			
+			# Clean up
+			fs3.nuke()

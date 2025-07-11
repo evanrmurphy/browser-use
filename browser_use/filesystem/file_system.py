@@ -169,6 +169,12 @@ class FileSystem:
 		}
 
 		self.files = {}
+		
+		# FORK ENHANCEMENT: Load existing files from disk into the registry
+		# This enables file sharing between Agent instances with the same file_system_path
+		# -evanrmurphy (11 Jul 2025)
+		self._load_existing_files()
+		
 		if create_default_files:
 			self.default_files = ['todo.md']
 			self._create_default_files()
@@ -194,6 +200,38 @@ class FileSystem:
 			file_obj = file_class(name=name_without_ext)
 			self.files[full_filename] = file_obj  # Use full filename as key
 			file_obj.sync_to_disk_sync(self.data_dir)
+
+	def _load_existing_files(self) -> None:
+		"""FORK ENHANCEMENT: Load existing files from disk into the registry
+		
+		This method enables file sharing between Agent instances with the same 
+		file_system_path by scanning the data directory and loading any existing 
+		files into the in-memory registry.
+		-evanrmurphy (11 Jul 2025)
+		"""
+		if not self.data_dir.exists():
+			return
+		
+		# Scan all files in the data directory
+		for file_path in self.data_dir.iterdir():
+			if file_path.is_file():
+				full_filename = file_path.name
+				
+				# Only load files with valid extensions that aren't already in registry
+				if self._is_valid_filename(full_filename) and full_filename not in self.files:
+					name_without_ext, extension = self._parse_filename(full_filename)
+					file_class = self._get_file_type_class(extension)
+					
+					if file_class:
+						# Create file object and load from disk
+						file_obj = file_class(name=name_without_ext)
+						try:
+							# Load existing content from disk
+							file_obj.load_from_disk(self.data_dir)
+							self.files[full_filename] = file_obj
+						except Exception:
+							# Skip files that can't be loaded properly
+							pass
 
 	def _is_valid_filename(self, file_name: str) -> bool:
 		"""Check if filename matches the required pattern: name.extension"""
