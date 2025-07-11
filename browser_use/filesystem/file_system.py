@@ -223,11 +223,11 @@ class FileSystem:
 					file_class = self._get_file_type_class(extension)
 					
 					if file_class:
-						# Create file object and load from disk
-						file_obj = file_class(name=name_without_ext)
 						try:
-							# Load existing content from disk
-							file_obj.load_from_disk(self.data_dir)
+							# Read existing content from disk
+							content = file_path.read_text()
+							# Create file object with loaded content
+							file_obj = file_class(name=name_without_ext, content=content)
 							self.files[full_filename] = file_obj
 						except Exception:
 							# Skip files that can't be loaded properly
